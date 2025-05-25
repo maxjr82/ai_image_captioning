@@ -1,0 +1,15 @@
+# Google Photos API
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+
+# Image processing
+Pillow
+requests
+
+# Local LLM (Ollama)
+ollama
+
+# UI Framework
+gradio

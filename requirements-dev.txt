@@ -1,0 +1,7 @@
+# Dev tools (testing/linting)
+pytest
+pytest-mock
+mypy
+flake8
+black
+isort

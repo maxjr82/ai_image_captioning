@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-image-captioning"
+version = "0.1.0"
+description = "An AI-powered image captioning tool using Ollama and LangChain"
+authors = [
+    { name = "Max Pinheiro Jr", email = "maxjr82@gmail.com" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "requests",
+    "pillow",
+    "pydantic>=2.0",
+    "langchain",
+    "langchain_ollama",
+    "google-auth",
+    "google-auth-oauthlib",
+    "google-api-python-client",
+    "gradio"
+]
+
+[project.scripts]
+caption-image = "ai_image_captioning.agent.image_captioning:main"
