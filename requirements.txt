@@ -1,8 +1,8 @@
 # Google Photos API
-google-api-python-client
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
+google-api-python-client
 
 # Image processing
 Pillow
@@ -10,6 +10,15 @@ requests
 
 # Local LLM (Ollama)
 ollama
+langchain-ollama
+langchain-core
 
 # UI Framework
 gradio
+
+# data handling
+pandas
+pyarrow
+logging
+pydantic
+pytesseract
