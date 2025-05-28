@@ -17,6 +17,7 @@ langchain-core
 gradio
 
 # data handling
+geopy
 pandas
 pyarrow
 logging

@@ -2,18 +2,18 @@
 Image Captioning Agent using Ollama
 """
 
-import sys
 import base64
-import time
 import logging
-from pathlib import Path
-from typing import Optional, Tuple, Dict, List
-from PIL import Image, UnidentifiedImageError
+import time
 from io import BytesIO
-from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage, SystemMessage
-from pydantic import BaseModel
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
 import requests
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_ollama import ChatOllama
+from PIL import Image, UnidentifiedImageError
+from pydantic import BaseModel
 
 from ai_image_captioning.utils.image_preprocessing import ImageTextExtractor
 
@@ -107,7 +107,7 @@ class ImageCaptionAgent:
             "- Focus on main subjects and composition\n"
             "- Mention text only if clearly visible\n"
             "- Avoid subjective interpretations\n"
-            "- Never mention that there is no visible text in the image\n"
+            "- Do not mention that there is no visible text in the image\n"
             "- If a recognized text is provided to you, correct text errors "
             " and use it as a system-tip to help you describe the image.\n"
             "- Use maximum 50 words or 300 characters including spaces.\n"

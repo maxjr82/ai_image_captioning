@@ -8,6 +8,7 @@ from typing import List, Optional
 from datetime import datetime
 import json
 
+from ai_image_captioning.data_model.image_metadata import ImageMetadata
 from ai_image_captioning.ingestion.photos_loader import GooglePhotosClient
 from ai_image_captioning.agent.image_captioning import ImageCaptionAgent
 from ai_image_captioning.utils.image_preprocessing import ImageTextExtractor
@@ -18,7 +19,7 @@ TEMP_DIR = Path(tempfile.mkdtemp())
 os.makedirs("data", exist_ok=True)
 
 # Supported multimodal models for selection
-SUPPORTED_MODELS = ["llava", "llama3.2-vision", "minicpm-v"]
+SUPPORTED_MODELS = ["llava", "llama4", "bakllava"]
 
 
 class CaptionApp:
@@ -27,6 +28,7 @@ class CaptionApp:
         self.selected_model = SUPPORTED_MODELS[0]
         self.caption_agent = ImageCaptionAgent(model_name=self.selected_model)
         self.text_extractor = ImageTextExtractor()
+        self.image_metadata = None
         self.photos_enabled = False
         self.photos_client = self._init_google_photos_client()
         self.current_photos = []

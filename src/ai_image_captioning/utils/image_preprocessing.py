@@ -1,9 +1,10 @@
+import logging
 import re
 from pathlib import Path
 from typing import Dict, Optional
-from PIL import Image, ImageEnhance, ImageFilter
+
 import pytesseract
-import logging
+from PIL import Image, ImageEnhance, ImageFilter
 
 logger = logging.getLogger(__name__)
 
@@ -137,4 +138,3 @@ class ImageTextExtractor:
             err_msg = f"Unexpected error during text extraction: {e}"
             logger.error(err_msg)
         return None
-
