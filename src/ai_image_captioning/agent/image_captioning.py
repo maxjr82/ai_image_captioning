@@ -40,7 +40,7 @@ class ImageCaptionAgent:
     def __init__(
         self,
         model_name: str = "llava",
-        temperature: float = 0.1,
+        temperature: float = 0.2,
         max_retries: int = 3,
         timeout: int = 120,
         # Default Ollama port
@@ -84,7 +84,9 @@ class ImageCaptionAgent:
             logger.error(err_msg)
             raise
 
-    def _encode_image(self, image_path: Path) -> Tuple[Optional[str], Optional[str]]:
+    def _encode_image(
+        self, image_path: Path
+    ) -> Tuple[Optional[str], Optional[str]]:
         """Convert image to base64 with validation and initialize metadata"""
         self.metadata = ImageMetadata(
             image_id=str(uuid.uuid4()),
@@ -98,23 +100,29 @@ class ImageCaptionAgent:
 
                 buffered = BytesIO()
                 img.save(buffered, format=img.format)
-                return base64.b64encode(buffered.getvalue()).decode("utf-8"), None
+                return (
+                    base64.b64encode(buffered.getvalue()).decode("utf-8"),
+                    None,
+                )
 
         except UnidentifiedImageError:
             return None, "Invalid image file"
         except Exception as e:
             return None, str(e)
 
-    def _build_messages(self, image_b64: str, ocr_result: Optional[Dict]) -> List:
+    def _build_messages(
+        self, image_b64: str, ocr_result: Optional[Dict]
+    ) -> List:
         """Construct messages for the LLM, including OCR tip if available"""
         # Base system prompt
         system_prompt = (
             "You are an AI assistant that can write concise and high-fidelity"
             " captions for any provided image (use <= 50 words).\n\n"
-            "When generating captions, please follow these guidelines:\n"
+            "When generating captions, follow these guidelines:\n"
             "- Provide factual description\n"
             "- Focus on main subjects and composition\n"
             "- Avoid subjective opinions or interpretations\n"
+            "- Whenever available, use the geographical location as context\n"
             "- If a recognized text is provided to you, correct text errors "
             " and use it as a system-tip to help you describe the image.\n"
             "- Do not mention that there is no visible text in the image\n"
@@ -126,8 +134,9 @@ class ImageCaptionAgent:
             system_prompt += f"- Recognized text on image: '{ocr_text}'\n"
 
         if self.metadata.location:
-            system_prompt += f"- Geographic location where the image was taken: {self.metadata.location}"
-
+            system_prompt += "- Geographical location: "
+            system_prompt += f"{self.metadata.location}"
+        
         return [
             SystemMessage(content=system_prompt),
             HumanMessage(
@@ -136,7 +145,10 @@ class ImageCaptionAgent:
                         "type": "image_url",
                         "image_url": f"data:image/jpeg;base64,{image_b64}",
                     },
-                    {"type": "text", "text": "Describe this image objectively."},
+                    {
+                        "type": "text",
+                        "text": "Describe this image objectively.",
+                    },
                 ]
             ),
         ]
@@ -196,9 +208,10 @@ if __name__ == "__main__":
     agent = ImageCaptionAgent()
 
     test_images = [
-        Path("data/test0.jpg"),
         Path("data/test1.jpg"),
         Path("data/test2.jpg"),
+        Path("data/test3.jpg"),
+        Path("data/test4.jpg"),
     ]
 
     for img_path in test_images:

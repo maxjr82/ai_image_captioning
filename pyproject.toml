@@ -24,5 +24,8 @@ dependencies = [
     "gradio"
 ]
 
+[tool.black]
+line-length = 79
+
 [project.scripts]
 caption-image = "ai_image_captioning.agent.image_captioning:main"

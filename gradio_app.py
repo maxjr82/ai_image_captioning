@@ -1,4 +1,5 @@
 import os
+import requests
 import tempfile
 import subprocess
 import gradio as gr
@@ -53,7 +54,9 @@ class CaptionApp:
 
     def _init_data_store(self):
         if self.caption_agent.metadata is None:
-            raise ValueError("Metadata is not available to initialize the data store.")
+            raise ValueError(
+                "Metadata is not available to initialize the data store."
+            )
         columns = list(self.caption_agent.metadata.to_dict().keys())
         if not self.captions_path.exists():
             self.captions_df = pd.DataFrame(columns=columns)
@@ -68,12 +71,14 @@ class CaptionApp:
         try:
             self.current_photos = self.photos_client.get_photos()
             return [photo["filename"] for photo in self.current_photos]
-        except Exception as e:
+        except requests.RequestException as e:
             print(f"Error loading Google Photos: {e}")
             return []
 
     def _get_photo_by_filename(self, filename: str) -> Optional[dict]:
-        return next((p for p in self.current_photos if p["filename"] == filename), None)
+        return next(
+            (p for p in self.current_photos if p["filename"] == filename), None
+        )
 
     def _download_and_display_photo(self, filename: str):
         photo_item = self._get_photo_by_filename(filename)
@@ -83,9 +88,21 @@ class CaptionApp:
         try:
             temp_file = TEMP_DIR / photo_item["filename"]
             if not temp_file.exists():
-                downloaded = self.photos_client.download_photo(photo_item, TEMP_DIR)
-                if not downloaded:
-                    return None, "Download failed"
+                # Append '=d' to request the original image with metadata
+                download_url = f"{photo_item['baseUrl']}=d"
+                headers = {
+                    "Authorization": f"Bearer {self.photos_client.get_access_token()}"
+                }
+                response = requests.get(
+                    download_url, headers=headers, timeout=30, stream=True
+                )
+                if response.status_code != 200:
+                    return (
+                        None,
+                        f"Download failed. Status code: {response.status_code}",
+                    )
+                with open(temp_file, "wb") as f:
+                    f.write(response.content)
             caption = self._generate_caption(str(temp_file))
             return str(temp_file), caption
         except Exception as e:
@@ -100,8 +117,8 @@ class CaptionApp:
                 return result.caption
             else:
                 return "Caption generation failed"
-        except Exception as e:
-            return "Error generating caption"
+        except (RuntimeError, OSError) as e:
+            return f"Error generating caption: {e}"
 
     def _validate_caption(self, image_path: str, caption: str) -> str:
         try:
@@ -117,7 +134,9 @@ class CaptionApp:
 
     def is_model_installed(self, model_name: str) -> bool:
         try:
-            result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["ollama", "list"], capture_output=True, text=True
+            )
             return model_name in result.stdout
         except Exception as e:
             print(f"Error checking model installation: {e}")
@@ -129,7 +148,9 @@ class CaptionApp:
             self.caption_agent = ImageCaptionAgent(model_name=model_name)
             return f"Model '{model_name}' is selected and ready to use."
         else:
-            return f"Model '{model_name}' is not installed. Please run 'ollama pull {model_name}' to install it."
+            msg = f"Model '{model_name}' is not installed. "
+            msg += f"Please run 'ollama pull {model_name}' to install it." 
+            return msg
 
     def create_interface(self):
         with gr.Blocks(title="Image Captioning App") as app:
@@ -142,13 +163,17 @@ class CaptionApp:
                         label="Select Model",
                         value=self.selected_model,
                     )
-                    model_status = gr.Textbox(label="Model Status", interactive=False)
+                    model_status = gr.Textbox(
+                        label="Model Status", interactive=False
+                    )
 
                     source_radio = gr.Radio(
                         ["Google Photos", "Manual Upload"],
                         label="Image Source",
                         value=(
-                            "Google Photos" if self.photos_enabled else "Manual Upload"
+                            "Google Photos"
+                            if self.photos_enabled
+                            else "Manual Upload"
                         ),
                     )
                     photo_dropdown = gr.Dropdown(
@@ -167,23 +192,31 @@ class CaptionApp:
                     )
                     if not self.photos_enabled:
                         gr.Markdown(
-                            "⚠️ Google Photos credentials not found. Feature disabled."
+                            ("⚠️ Google Photos credentials not found."
+                             " Feature disabled.")
                         )
 
                 with gr.Column(scale=1):
                     output_image = gr.Image(
-                        label="Image Preview", interactive=False, width=900, height=600
+                        label="Image Preview",
+                        interactive=False,
+                        width=900,
+                        height=600,
                     )
                     caption_output = gr.Textbox(
                         label="Generated Caption", interactive=False
                     )
-                    validate_btn = gr.Button("✅ Validate Caption", variant="primary")
+                    validate_btn = gr.Button(
+                        "✅ Validate Caption", variant="primary"
+                    )
                     validation_status = gr.Textbox(
                         label="Validation Status", interactive=False
                     )
 
             model_dropdown.change(
-                fn=self._on_model_change, inputs=model_dropdown, outputs=model_status
+                fn=self._on_model_change,
+                inputs=model_dropdown,
+                outputs=model_status,
             )
 
             source_radio.change(

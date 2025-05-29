@@ -1,14 +1,12 @@
-import logging
 from pathlib import Path
-from typing import Dict, List, Optional
-
-import requests
+from typing import Optional, Dict, List
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+import requests
+import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -17,6 +15,7 @@ class GooglePhotosClient:
 
     def __init__(self, credentials_path: str = "credentials.json"):
         self.credentials_path = Path(credentials_path)
+        self.credentials = None
         self.service = self._authenticate()
 
     def _authenticate(self):
@@ -39,9 +38,27 @@ class GooglePhotosClient:
 
             token_file.write_text(creds.to_json())
 
-        return build("photoslibrary", "v1", credentials=creds, static_discovery=False)
+        self.credentials = creds
+        return build(
+            "photoslibrary", "v1", credentials=creds, static_discovery=False
+        )
 
-    def _list_media_items(self, page_size: int = 100, page_token: Optional[str] = None):
+    def get_access_token(self) -> str:
+        """
+        Retrieves a valid access token for authenticated requests.
+        """
+        if not self.credentials.valid:
+            if self.credentials.expired and self.credentials.refresh_token:
+                self.credentials.refresh(Request())
+            else:
+                raise RuntimeError(
+                    "Credentials are invalid and cannot be refreshed."
+                )
+        return self.credentials.token
+
+    def _list_media_items(
+        self, page_size: int = 100, page_token: Optional[str] = None
+    ):
         """Correct implementation of mediaItems.list"""
         return (
             self.service.mediaItems()
@@ -49,7 +66,9 @@ class GooglePhotosClient:
             .execute()
         )
 
-    def _search_media_items(self, body: Dict, page_token: Optional[str] = None):
+    def _search_media_items(
+        self, body: Dict, page_token: Optional[str] = None
+    ):
         """Correct implementation of mediaItems.search"""
         if page_token:
             body["pageToken"] = page_token
@@ -66,13 +85,17 @@ class GooglePhotosClient:
                 response = self._list_media_items(page_token=next_page_token)
                 items = response.get("mediaItems", [])
                 photos.extend(
-                    [item for item in items if item["mimeType"].startswith("image/")]
+                    [
+                        item
+                        for item in items
+                        if item["mimeType"].startswith("image/")
+                    ]
                 )
                 next_page_token = response.get("nextPageToken")
                 if not next_page_token:
                     break
             except Exception as e:
-                logger.error(f"Failed to list media items: {str(e)}")
+                logger.error("Failed to list media items: %s", str(e))
                 break
 
         if include_albums:
@@ -98,9 +121,12 @@ class GooglePhotosClient:
                             page_token=next_search_page_token,
                         )
                         album_photos.update(
-                            item["id"] for item in search_results.get("mediaItems", [])
+                            item["id"]
+                            for item in search_results.get("mediaItems", [])
                         )
-                        next_search_page_token = search_results.get("nextPageToken")
+                        next_search_page_token = search_results.get(
+                            "nextPageToken"
+                        )
                         if not next_search_page_token:
                             break
 
@@ -109,12 +135,14 @@ class GooglePhotosClient:
                     break
 
             except Exception as e:
-                logger.error(f"Failed to process albums: {str(e)}")
+                logger.error("Failed to process albums: %s", str(e))
                 break
 
         return [p for p in photos if p["id"] not in album_photos]
 
-    def download_photo(self, photo_item: Dict, output_dir: Path) -> Optional[Path]:
+    def download_photo(
+        self, photo_item: Dict, output_dir: Path
+    ) -> Optional[Path]:
         """Download photo to local directory"""
         try:
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -128,5 +156,9 @@ class GooglePhotosClient:
 
             return file_path
         except Exception as e:
-            logger.error(f"Download failed for {photo_item.get('filename')}: {str(e)}")
+            logger.error(
+                "Download failed for %s: %s",
+                photo_item.get("filename"),
+                str(e),
+            )
             return None

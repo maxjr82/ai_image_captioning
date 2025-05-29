@@ -43,8 +43,12 @@ def _get_gps_coord(exif: Dict[Any, Any]) -> Optional[str]:
         except Exception:
             return ""
 
-    lat = _to_deg(gps.get("GPSLatitude", (0, 0, 0)), gps.get("GPSLatitudeRef", "N"))
-    lon = _to_deg(gps.get("GPSLongitude", (0, 0, 0)), gps.get("GPSLongitudeRef", "E"))
+    lat = _to_deg(
+        gps.get("GPSLatitude", (0, 0, 0)), gps.get("GPSLatitudeRef", "N")
+    )
+    lon = _to_deg(
+        gps.get("GPSLongitude", (0, 0, 0)), gps.get("GPSLongitudeRef", "E")
+    )
 
     if lat is not None and lon is not None:
         return (lat, lon)
@@ -75,7 +79,11 @@ def _get_location(lat: float, lon: float) -> dict:
                 or address.get("hamlet")
             )
             country = address.get("country")
-            return {"neighbourhood": neighbourhood, "city": city, "country": country}
+            return {
+                "neighbourhood": neighbourhood,
+                "city": city,
+                "country": country,
+            }
         else:
             return {"neighbourhood": None, "city": None, "country": None}
     except (GeocoderTimedOut, GeocoderServiceError) as e:
@@ -91,7 +99,9 @@ class ImageMetadata(BaseModel):
     image_id: str = Field(
         ..., min_length=1, description="Unique identifier for the image"
     )
-    filename: str = Field(..., min_length=4, description="Original filename or URL")
+    filename: str = Field(
+        ..., min_length=4, description="Original filename or URL"
+    )
     image_location: Union[Path, AnyUrl] = Field(
         ..., description="Local path or URL of the image"
     )
@@ -115,16 +125,26 @@ class ImageMetadata(BaseModel):
     software: Optional[str] = Field(
         None, description="Software used to process the image"
     )
-    image_width: Optional[int] = Field(None, description="Image width in pixels")
-    image_length: Optional[int] = Field(None, description="Image length in pixels")
+    image_width: Optional[int] = Field(
+        None, description="Image width in pixels"
+    )
+    image_length: Optional[int] = Field(
+        None, description="Image length in pixels"
+    )
 
     # Camera settings
     aperture_value: Optional[float] = Field(
         None, description="Aperture value (FNumber) from EXIF"
     )
-    focal_length: Optional[float] = Field(None, description="Focal length from EXIF")
-    brightness: Optional[float] = Field(None, description="Brightness from EXIF")
-    exposure_time: Optional[float] = Field(None, description="Exposure time from EXIF")
+    focal_length: Optional[float] = Field(
+        None, description="Focal length from EXIF"
+    )
+    brightness: Optional[float] = Field(
+        None, description="Brightness from EXIF"
+    )
+    exposure_time: Optional[float] = Field(
+        None, description="Exposure time from EXIF"
+    )
     iso: Optional[int] = Field(None, description="ISO speed from EXIF")
     gps: Optional[Tuple[float, float]] = Field(
         None, description="GPS coordinates as (lat, lon)"
@@ -176,7 +196,9 @@ class ImageMetadata(BaseModel):
             dto = exif.get("DateTimeOriginal")
             if dto:
                 try:
-                    values["created_at"] = datetime.strptime(dto, "%Y:%m:%d %H:%M:%S")
+                    values["created_at"] = datetime.strptime(
+                        dto, "%Y:%m:%d %H:%M:%S"
+                    )
                 except Exception:
                     pass
             values["make"] = exif.get("Make")
