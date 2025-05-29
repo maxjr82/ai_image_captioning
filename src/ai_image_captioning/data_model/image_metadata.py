@@ -67,6 +67,7 @@ def _get_location(lat: float, lon: float) -> dict:
         location = geolocator.reverse((lat, lon), exactly_one=True, timeout=10)
         if location and location.raw and "address" in location.raw:
             address = location.raw["address"]
+            neighbourhood = address.get("neighbourhood", "")
             city = (
                 address.get("city")
                 or address.get("town")
@@ -74,12 +75,12 @@ def _get_location(lat: float, lon: float) -> dict:
                 or address.get("hamlet")
             )
             country = address.get("country")
-            return {"city": city, "country": country}
+            return {"neighbourhood": neighbourhood, "city": city, "country": country}
         else:
-            return {"city": None, "country": None}
+            return {"neighbourhood": None, "city": None, "country": None}
     except (GeocoderTimedOut, GeocoderServiceError) as e:
         print(f"Geocoding error: {e}")
-        return {"city": None, "country": None}
+        return {"neighbourhood": None, "city": None, "country": None}
 
 
 class ImageMetadata(BaseModel):

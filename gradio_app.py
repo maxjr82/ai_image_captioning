@@ -5,10 +5,8 @@ import gradio as gr
 import pandas as pd
 from pathlib import Path
 from typing import List, Optional
-from datetime import datetime
 import json
 
-from ai_image_captioning.data_model.image_metadata import ImageMetadata
 from ai_image_captioning.ingestion.photos_loader import GooglePhotosClient
 from ai_image_captioning.agent.image_captioning import ImageCaptionAgent
 from ai_image_captioning.utils.image_preprocessing import ImageTextExtractor
@@ -24,19 +22,17 @@ SUPPORTED_MODELS = ["llava", "llama4", "bakllava"]
 
 class CaptionApp:
     def __init__(self):
-        # Default model
         self.selected_model = SUPPORTED_MODELS[0]
         self.caption_agent = ImageCaptionAgent(model_name=self.selected_model)
         self.text_extractor = ImageTextExtractor()
-        self.image_metadata = None
         self.photos_enabled = False
         self.photos_client = self._init_google_photos_client()
         self.current_photos = []
-        self._init_data_store()
+        self.captions_df = None
+        self.captions_path = Path("data") / CAPTIONS_FILE
 
     def _init_google_photos_client(self) -> Optional[GooglePhotosClient]:
-        """Try to load credentials from env or fallback to local file"""
-        cred_json = os.environ.get("GOOGLE_PHOTOS_CREDENTIALS_JSON")
+        cred_json = os.environ.get("GOOGLE_PHOTOS_SECRETS")
         cred_path = Path("config/credentials.json")
 
         if cred_json:
@@ -56,29 +52,19 @@ class CaptionApp:
         return None
 
     def _init_data_store(self):
-        """Initialize the Parquet data store"""
-        self.captions_path = Path("data") / CAPTIONS_FILE
+        if self.caption_agent.metadata is None:
+            raise ValueError("Metadata is not available to initialize the data store.")
+        columns = list(self.caption_agent.metadata.to_dict().keys())
         if not self.captions_path.exists():
-            self.captions_df = pd.DataFrame(
-                columns=[
-                    "image_path",
-                    "caption",
-                    "validated_at",
-                    "source",
-                    "processing_time",
-                    "created_at",
-                ]
-            )
+            self.captions_df = pd.DataFrame(columns=columns)
             self._save_captions()
         else:
             self.captions_df = pd.read_parquet(self.captions_path)
 
     def _save_captions(self):
-        """Save captions to Parquet file"""
         self.captions_df.to_parquet(self.captions_path)
 
     def _get_google_photos(self) -> List[str]:
-        """Load photo metadata and return dropdown options"""
         try:
             self.current_photos = self.photos_client.get_photos()
             return [photo["filename"] for photo in self.current_photos]
@@ -108,52 +94,28 @@ class CaptionApp:
     def _generate_caption(self, image_path: str) -> str:
         try:
             result = self.caption_agent.generate_caption(Path(image_path))
-            return result.caption if result.success else "Caption generation failed"
+            if result.success:
+                if self.captions_df is None:
+                    self._init_data_store()
+                return result.caption
+            else:
+                return "Caption generation failed"
         except Exception as e:
             return "Error generating caption"
 
     def _validate_caption(self, image_path: str, caption: str) -> str:
         try:
-            if not isinstance(image_path, str):
-                image_path = getattr(image_path, "name", str(image_path))
-
-            source = "upload"
-            if (
-                "google_photos" in image_path.lower()
-                or "contentlibrary" in image_path.lower()
-            ):
-                source = "google_photos"
-
-            created_at = None
-            if source == "google_photos":
-                filename = Path(image_path).name
-                photo_item = self._get_photo_by_filename(filename)
-                if photo_item and "mediaMetadata" in photo_item:
-                    created_at = photo_item["mediaMetadata"].get("creationTime")
-
-            new_record = pd.DataFrame(
-                [
-                    {
-                        "image_path": image_path,
-                        "caption": caption,
-                        "validated_at": datetime.now().isoformat(),
-                        "source": source,
-                        "processing_time": None,
-                        "created_at": created_at,
-                    }
-                ]
-            )
-
+            self.caption_agent.metadata.generated_caption = caption
+            new_record = pd.DataFrame([self.caption_agent.metadata.to_dict()])
             self.captions_df = pd.concat(
                 [self.captions_df, new_record], ignore_index=True
             )
             self._save_captions()
             return "✅ Caption validated and saved!"
         except Exception as e:
-            return "❌ Error saving caption"
+            return f"❌ Error saving caption: {e}"
 
     def is_model_installed(self, model_name: str) -> bool:
-        """Check if the model is installed locally using 'ollama list'."""
         try:
             result = subprocess.run(["ollama", "list"], capture_output=True, text=True)
             return model_name in result.stdout
@@ -162,7 +124,6 @@ class CaptionApp:
             return False
 
     def _on_model_change(self, model_name: str) -> str:
-        """Handler for model selection changes"""
         if self.is_model_installed(model_name):
             self.selected_model = model_name
             self.caption_agent = ImageCaptionAgent(model_name=model_name)
@@ -176,7 +137,6 @@ class CaptionApp:
 
             with gr.Row():
                 with gr.Column(scale=1):
-                    # Model selection dropdown
                     model_dropdown = gr.Dropdown(
                         choices=SUPPORTED_MODELS,
                         label="Select Model",
@@ -222,7 +182,6 @@ class CaptionApp:
                         label="Validation Status", interactive=False
                     )
 
-            # Events
             model_dropdown.change(
                 fn=self._on_model_change, inputs=model_dropdown, outputs=model_status
             )

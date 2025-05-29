@@ -38,6 +38,15 @@ class ImageTextExtractor:
         has_consonants = bool(self.consonant_pattern.search(word))
         return has_vowels and has_consonants
 
+    def _is_valid_text(self, text: str) -> bool:
+        """Check if text contains valid words"""
+        valid_str = True
+        str_list = text.split()
+        max_word_length = max(len(s) for s in str_list)
+        if len(str_list) > 3 and max_word_length < 4:
+            valid_str = False
+        return valid_str
+
     def _calculate_text_quality(self, text: str) -> float:
         """Evaluate text quality using basic rules"""
         clean_text = re.sub(r"[^a-zA-Z\s]", "", text).strip()
@@ -126,7 +135,8 @@ class ImageTextExtractor:
 
             # Only return if quality meets threshold
             if quality >= self.min_quality and result["significant_text"]:
-                return result
+                if self._is_valid_text(result["text"]):
+                    return result
 
             msg = f"Text quality too low ({quality:.2f}) or no significant"
             msg += " text found."

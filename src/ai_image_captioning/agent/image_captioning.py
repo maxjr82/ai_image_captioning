@@ -53,7 +53,7 @@ class ImageCaptionAgent:
         self.base_url = base_url
         self.preprocessor = ImageTextExtractor()
         self.llm = self._initialize_model()
-        self.metadata: Optional[ImageMetadata] = None
+        self.metadata: ImageMetadata = None
 
     def _verify_ollama_connection(self) -> bool:
         """Check if Ollama server is running"""
