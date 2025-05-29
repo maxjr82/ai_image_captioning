@@ -5,6 +5,8 @@ Image Captioning Agent using Ollama
 import base64
 import logging
 import time
+import uuid
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -15,6 +17,7 @@ from langchain_ollama import ChatOllama
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 
+from ai_image_captioning.data_model.image_metadata import ImageMetadata
 from ai_image_captioning.utils.image_preprocessing import ImageTextExtractor
 
 # Configure logging
@@ -50,6 +53,7 @@ class ImageCaptionAgent:
         self.base_url = base_url
         self.preprocessor = ImageTextExtractor()
         self.llm = self._initialize_model()
+        self.metadata: Optional[ImageMetadata] = None
 
     def _verify_ollama_connection(self) -> bool:
         """Check if Ollama server is running"""
@@ -81,7 +85,12 @@ class ImageCaptionAgent:
             raise
 
     def _encode_image(self, image_path: Path) -> Tuple[Optional[str], Optional[str]]:
-        """Convert image to base64 with validation"""
+        """Convert image to base64 with validation and initialize metadata"""
+        self.metadata = ImageMetadata(
+            image_id=str(uuid.uuid4()),
+            filename=image_path.name,
+            image_location=image_path,
+        )
         try:
             with Image.open(image_path) as img:
                 if img.format not in ["JPEG", "PNG", "WEBP"]:
@@ -100,22 +109,24 @@ class ImageCaptionAgent:
         """Construct messages for the LLM, including OCR tip if available"""
         # Base system prompt
         system_prompt = (
-            "You are an AI assistant that can write engaging and high-fidelity"
-            " captions for any provided image.\n\n"
+            "You are an AI assistant that can write concise and high-fidelity"
+            " captions for any provided image (use <= 50 words).\n\n"
             "When generating captions, please follow these guidelines:\n"
-            "- Concise, factual description\n"
+            "- Provide factual description\n"
             "- Focus on main subjects and composition\n"
-            "- Mention text only if clearly visible\n"
-            "- Avoid subjective interpretations\n"
-            "- Do not mention that there is no visible text in the image\n"
+            "- Avoid subjective opinions or interpretations\n"
             "- If a recognized text is provided to you, correct text errors "
             " and use it as a system-tip to help you describe the image.\n"
-            "- Use maximum 50 words or 300 characters including spaces.\n"
+            "- Do not mention that there is no visible text in the image\n"
         )
         # If OCR extracted meaningful text, add as a system-tip
         if ocr_result and ocr_result.get("text"):
             ocr_text = ocr_result["text"].strip()
-            system_prompt += f"\n- Recognized text on image: '{ocr_text}'"
+            self.metadata.extracted_text = ocr_text
+            system_prompt += f"- Recognized text on image: '{ocr_text}'\n"
+
+        if self.metadata.location:
+            system_prompt += f"- Geographic location where the image was taken: {self.metadata.location}"
 
         return [
             SystemMessage(content=system_prompt),
@@ -155,6 +166,10 @@ class ImageCaptionAgent:
             for attempt in range(1, self.max_retries + 1):
                 try:
                     response = self.llm.invoke(messages)
+                    caption = response.content.strip()
+                    if self.metadata:
+                        self.metadata.generated_caption = caption
+                        self.metadata.updated_at = datetime.now()
                     return CaptioningResult(
                         success=True,
                         caption=response.content.strip(),
@@ -181,9 +196,9 @@ if __name__ == "__main__":
     agent = ImageCaptionAgent()
 
     test_images = [
-        Path("data/test8.png"),
         Path("data/test1.jpg"),
-        Path("data/test10.jpg"),
+        Path("data/test2.jpg"),
+        Path("data/test3.jpg"),
     ]
 
     for img_path in test_images:

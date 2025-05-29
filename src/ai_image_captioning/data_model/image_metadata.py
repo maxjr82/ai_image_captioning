@@ -105,7 +105,7 @@ class ImageMetadata(BaseModel):
 
     # OCR text
     extracted_text: Optional[str] = Field(
-        None, max_length=2000, description="Text extracted from image via OCR"
+        None, max_length=10000, description="Text extracted from image via OCR"
     )
 
     # EXIF fields

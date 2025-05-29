@@ -66,7 +66,7 @@ class CaptionApp:
                     "validated_at",
                     "source",
                     "processing_time",
-                    "created_at",  # <-- New field
+                    "created_at",
                 ]
             )
             self._save_captions()
