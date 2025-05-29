@@ -63,11 +63,11 @@ def _get_location(lat: float, lon: float) -> dict:
         dict: A dictionary containing 'city' and 'country' keys.
     """
     try:
-        geolocator = Nominatim(user_agent="your_app_name")
+        geolocator = Nominatim(user_agent="image_captioning_app")
         location = geolocator.reverse((lat, lon), exactly_one=True, timeout=10)
         if location and location.raw and "address" in location.raw:
             address = location.raw["address"]
-            neighbourhood = address.get("neighbourhood", "")
+            neighbourhood = address.get("city_block", "")
             city = (
                 address.get("city")
                 or address.get("town")
@@ -201,13 +201,21 @@ class ImageMetadata(BaseModel):
                 values["gps"] = gps_coords
                 lat, lon = values["gps"]
                 location_info = _get_location(lat, lon)
+                neighbourhood = location_info.get("neighbourhood")
                 city = location_info.get("city")
                 country = location_info.get("country")
-                values["location"] = f"{city}, {country}" if city and country else None
+                if city and country:
+                    location_parts = [
+                        part for part in [neighbourhood, city, country] if part
+                    ]
+                    values["location"] = ", ".join(location_parts)
+
         except (UnidentifiedImageError, TypeError, FileNotFoundError) as e:
-            logger.warning(f"Cannot extract EXIF from {loc}: {e}")
+            warn_msg = f"Cannot extract EXIF from {loc}: {e}"
+            logger.warning(warn_msg)
         except Exception as e:
-            logger.error(f"Error processing EXIF for {loc}: {e}")
+            err_msg = f"Error processing EXIF for {loc}: {e}"
+            logger.error(err_msg)
         return values
 
     def update_caption(self, new_caption: str, validated: bool = True) -> None:

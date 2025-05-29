@@ -196,9 +196,9 @@ if __name__ == "__main__":
     agent = ImageCaptionAgent()
 
     test_images = [
+        Path("data/test0.jpg"),
         Path("data/test1.jpg"),
         Path("data/test2.jpg"),
-        Path("data/test3.jpg"),
     ]
 
     for img_path in test_images:
@@ -206,7 +206,8 @@ if __name__ == "__main__":
         result = agent.generate_caption(img_path)
 
         if result.success:
-            print(f"Caption: {result.caption}")
+            print(f"Caption: {result.caption}\n")
+            print(f"metadata: {agent.metadata.to_dict()}")
             print(f"Processing time: {result.processing_time:.2f}s")
         else:
             print(f"Error: {result.error}")
