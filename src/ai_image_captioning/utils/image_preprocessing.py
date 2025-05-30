@@ -43,6 +43,8 @@ class ImageTextExtractor:
         valid_str = True
         str_list = text.split()
         max_word_length = max(len(s) for s in str_list)
+        if text.count("|") > 1:
+            valid_str = False
         if len(str_list) > 3 and max_word_length < 4:
             valid_str = False
         return valid_str

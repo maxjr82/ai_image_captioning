@@ -14,3 +14,7 @@ venv/
 # sensitive information
 config/token.json
 config/credentials.json
+
+# data
+*.parquet
+data/*.parquet
